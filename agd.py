@@ -109,7 +109,7 @@ Stochastic nesterov
     does backtrack-on-restart work well? yes
 
 Flat Network:
-    Compare RBF, Inverse Quadratic, Fuzzy, and Leaky Relu on Sine wave
+    Compare RBF, Inverse Quadratic, Fuzzy, and Leaky Relu on Sine wave, Point and linear
     distribute nodes:
         over spread (all data between two nodes)
         underspread (all node between two through)

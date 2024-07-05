@@ -105,7 +105,9 @@ restarted = False
 avg_log_lr = 1.
 avg_log_lr_count = 0.
 backtrack_counter = horizon
-backtrack_on_restart = False
+backtrack_on_restart = True
+restart_counter = 0
+restart_counter_2 = 0
 
 for i in range(400):
     for j in range(1000):
@@ -121,11 +123,14 @@ for i in range(400):
         #cum_grad = (descent_dir/cum_inv_rate/horizon + beta * cum_grad) / (1 + beta)
 
         if restarts:
-            restart_condition = np.dot(cum_grad, cum_mom + cum_grad/cum_inv_rate/horizon) < 0
+            restart_condition = np.dot(cum_grad, cum_mom + 0 * cum_grad/cum_inv_rate/horizon) < 0
             #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
 
             if restart_condition:
-                if k == 0:
+                restart_counter_2 += 1
+
+            if restart_condition:
+                if restart_counter_2 >= horizon // 2 and restart_counter == horizon:
                     print("Restart")
                     # restart
                     x_mom = x
@@ -137,6 +142,13 @@ for i in range(400):
                     avg_log_lr_count = 1.
                     backtrack_counter = horizon
                     # cum_inv_rate is not zeroed out!
+
+            if restart_counter == horizon:
+                restart_counter = 0
+                restart_counter_2 = 0
+            else:
+                restart_counter += 1
+
 
         # skippable? YES!
         if backtrack_counter > 0 or not backtrack_on_restart:
@@ -161,6 +173,28 @@ for i in range(400):
     print(f"loss = {loss(x, input_vectors, output_vectors)}")
     n_evals_elapsed.append(n_evals)
     evals.append(loss(x, input_vectors, output_vectors))
+
+# for i in range(5000):
+#     for j in range(1000):
+#         k = rng.integers(1000)
+#         input = input_vectors[k]
+#         output = output_vectors[k]
+#
+#         small_mom = (x - x_prev)
+#         x_mom = x + 0.998* small_mom
+#         descent_dir = -df(x_mom, input, output)
+#
+#         lr, n_lr_evals = 0.5/condition_multiplier, 0
+#         grad_step = lr * descent_dir / 10
+#         x_prev = x
+#         x = x + small_mom + grad_step
+#
+#         n_evals += 1 + n_lr_evals
+#         n_steps += 1
+#
+#     print(f"loss = {loss(x, input_vectors, output_vectors)}, {horizon=}")
+#     n_evals_elapsed.append(n_evals)
+#     evals.append(loss(x, input_vectors, output_vectors))
 
 
 print("Average n_evals per step:", n_evals/n_steps)
