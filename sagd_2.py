@@ -123,14 +123,14 @@ for i in range(400):
         #cum_grad = (descent_dir/cum_inv_rate/horizon + beta * cum_grad) / (1 + beta)
 
         if restarts:
-            restart_condition = np.dot(cum_grad, cum_mom + 0 * cum_grad/cum_inv_rate/horizon) < 0
+            restart_condition = np.dot(cum_grad, small_mom + 0* cum_grad/cum_inv_rate/horizon) < 0
             #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
 
             if restart_condition:
                 restart_counter_2 += 1
 
             if restart_condition:
-                if restart_counter_2 >= horizon // 2 and restart_counter == horizon:
+                if True: #restart_counter_2 >= horizon // 2 and restart_counter == horizon:
                     print("Restart")
                     # restart
                     x_mom = x

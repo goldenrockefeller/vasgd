@@ -97,7 +97,6 @@ df = jax.jit(sample_loss_grad)
 print(loss(x, input_vectors, output_vectors))
 print(f"target_model loss = {loss(target_model, input_vectors, output_vectors)}")
 restarted = False
-
 avg_log_lr = 1.
 avg_log_lr_count = 0.
 backtrack_counter = horizon
@@ -119,14 +118,14 @@ for i in range(400):
         #cum_grad = (descent_dir/cum_inv_rate/horizon + beta * cum_grad) / (1 + beta)
 
         if restarts:
-            restart_condition = np.dot(cum_grad, cum_mom + 0 * cum_grad/cum_inv_rate/horizon) < 0
+            restart_condition = np.dot(cum_grad, small_mom + 0* cum_grad/cum_inv_rate/horizon) < 0
             #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
 
             if restart_condition:
                 restart_counter_2 += 1
 
             if restart_condition:
-                if restart_counter_2 >= horizon // 2 and restart_counter == horizon:
+                if True: #restart_counter_2 >= horizon // 2 and restart_counter == horizon:
                     print("Restart")
                     # restart
                     x_mom = x
@@ -194,4 +193,5 @@ for i in range(400):
 
 
 print("Average n_evals per step:", n_evals/n_steps)
+
 
