@@ -17,6 +17,5 @@ The main takeaways from these experiments are:
 6) Kalman filter for parameter estimation is not good, other preconditioners should be used.
 
 Restart Conditions:
--Restart after 50% failre in *horizon* steps
-- Restart when 1 failure, checked every *horizon* steps
+-Restart on first failure, after *horizon* steps
    
