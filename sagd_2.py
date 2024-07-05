@@ -92,7 +92,7 @@ restarts = True
 cum_mom = 0*x
 cum_grad = 0*x
 cum_inv_rate = epsilon
-horizon = 300 # all the same horizon value!!!
+horizon = 1000 # all the same horizon value!!!
 beta = 1 - (1/horizon)
 
 f = jax.jit(sample_loss)
@@ -102,10 +102,11 @@ print(loss(x, input_vectors, output_vectors))
 #print(f"target_model loss = {loss(target_model, input_vectors, output_vectors)}")
 restarted = False
 
+
 avg_log_lr = 1.
 avg_log_lr_count = 0.
 backtrack_counter = horizon
-backtrack_on_restart = True
+backtrack_on_restart = False
 restart_counter = 0
 restart_counter_2 = 0
 
@@ -127,10 +128,9 @@ for i in range(400):
             #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
 
             if restart_condition:
-                restart_counter_2 += 1
 
-            if restart_condition:
-                if True: #restart_counter_2 >= horizon // 2 and restart_counter == horizon:
+                if restart_counter == horizon and restart_counter_2 == horizon:
+                    restart_counter = 0
                     print("Restart")
                     # restart
                     x_mom = x
@@ -141,14 +141,15 @@ for i in range(400):
                     n_evals += 1
                     avg_log_lr_count = 1.
                     backtrack_counter = horizon
+                    cum_inv_rate = epsilon
+                    restart_counter_2 = 0
                     # cum_inv_rate is not zeroed out!
-
-            if restart_counter == horizon:
-                restart_counter = 0
-                restart_counter_2 = 0
-            else:
+                elif restart_counter < horizon:
+                    restart_counter += 1
+                elif restart_counter == horizon:
+                    restart_counter_2 += 1
+            elif restart_counter < horizon:
                 restart_counter += 1
-
 
         # skippable? YES!
         if backtrack_counter > 0 or not backtrack_on_restart:
@@ -159,7 +160,7 @@ for i in range(400):
             )
             avg_log_lr_count += 1.
             backtrack_counter -= 1
-            cum_inv_rate = 1 / (lr+ epsilon) + beta * cum_inv_rate
+            cum_inv_rate = max(1 / (lr+ epsilon) , beta * cum_inv_rate)
         else:
             n_lr_evals = 0
 
@@ -198,4 +199,8 @@ for i in range(400):
 
 
 print("Average n_evals per step:", n_evals/n_steps)
+
+
+
+
 
