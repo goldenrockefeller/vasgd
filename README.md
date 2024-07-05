@@ -16,5 +16,7 @@ The main takeaways from these experiments are:
 5) The number of function evaluations due to backtracking can be minimized by using previous backtracking results to estimate an optimal learning rate for future gradient descent directions. Periodic reestimation of this optimal learning rate is performed throughout the algorithm (e.g. after each Adaptive restart).
 6) Kalman filter for parameter estimation is not good, other preconditioners should be used.
 
-Now try: Restart check after horizon, scale* horizon, number of restart failure is equal to horizon or scale of horizon, randomly on horizon. next restart after atleast 2*horizon.
+Restart Conditions:
+-Restart after 50% failre in *horizon* steps
+- Restart when 1 failure, checked every *horizon* steps
    
