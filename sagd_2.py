@@ -102,11 +102,10 @@ print(loss(x, input_vectors, output_vectors))
 #print(f"target_model loss = {loss(target_model, input_vectors, output_vectors)}")
 restarted = False
 
-
 avg_log_lr = 1.
 avg_log_lr_count = 0.
 backtrack_counter = horizon
-backtrack_on_restart = False
+backtrack_on_restart = True
 restart_counter = 0
 restart_counter_2 = 0
 
@@ -127,8 +126,8 @@ for i in range(400):
             restart_condition = np.dot(cum_grad, small_mom + 0* cum_grad/cum_inv_rate/horizon) < 0
             #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
 
-            if restart_condition:
 
+            if restart_condition:
                 if restart_counter == horizon and restart_counter_2 == horizon:
                     restart_counter = 0
                     print("Restart")
@@ -141,10 +140,9 @@ for i in range(400):
                     n_evals += 1
                     avg_log_lr_count = 1.
                     backtrack_counter = horizon
-                    cum_inv_rate = epsilon
                     restart_counter_2 = 0
                     # cum_inv_rate is not zeroed out!
-                elif restart_counter < horizon:
+                elif restart_counter <horizon:
                     restart_counter += 1
                 elif restart_counter == horizon:
                     restart_counter_2 += 1
@@ -199,8 +197,6 @@ for i in range(400):
 
 
 print("Average n_evals per step:", n_evals/n_steps)
-
-
 
 
 
