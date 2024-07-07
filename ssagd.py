@@ -4,9 +4,9 @@ jax.config.update("jax_enable_x64", True)
 
 rng = np.random.default_rng()
 target_model = rng.normal(size = (10, 10))
-starting_model = (rng.normal(size = (10, 10)), rng.normal(size = (10, 10)))
+starting_model = rng.normal(size = (10, 10))
 n_input_vectors = 1000
-condition_multiplier = 1
+condition_multiplier = 1000 * 1000
 noise = 0.01
 
 input_vectors = []
@@ -31,10 +31,8 @@ min_eig, max_eig = min(eigvals), max(eigvals)
 print("Condition Number: ", max_eig/min_eig)
 
 def sample_loss(flattened_model, input, target):
-    M = np.reshape(flattened_model[:100], (10, 10))
-    N = np.reshape(flattened_model[100:200], (10, 10))
-    MN = M @ N
-    error = (MN @ input) - target
+    model = np.reshape(flattened_model, (10, 10))
+    error = (model @ input) - target
     return 0.5 * np.sum(error * error)
 
 def loss(flattened_model, input_vectors, output_vectors):
@@ -70,17 +68,15 @@ def backtracking_rate(old_lr, f, df, x_mom, descent_dir, input, output):
     return (d * lr, n_lr_evals)
 
 sample_loss_grad = jax.grad(sample_loss)
-
-
-x =  np.hstack((np.reshape(starting_model[0], 100), np.reshape(starting_model[1], 100)))
 print(
     sample_loss_grad(
-        x,
+        np.reshape(starting_model, 100),
         input_vectors[0],
         output_vectors[0]
     )
 )
 
+x =  np.reshape(starting_model, 100)
 x_prev = x
 epsilon = 1e-16
 lr = epsilon
@@ -92,14 +88,14 @@ restarts = True
 cum_mom = 0*x
 cum_grad = 0*x
 cum_inv_rate = epsilon
-horizon = 1000 # all the same horizon value!!!
+horizon = 400 # all the same horizon value!!!
 beta = 1 - (1/horizon)
 
 f = jax.jit(sample_loss)
 df = jax.jit(sample_loss_grad)
 
 print(loss(x, input_vectors, output_vectors))
-#print(f"target_model loss = {loss(target_model, input_vectors, output_vectors)}")
+print(f"target_model loss = {loss(target_model, input_vectors, output_vectors)}")
 restarted = False
 
 avg_log_lr = 1.
@@ -108,6 +104,8 @@ backtrack_counter = horizon
 backtrack_on_restart = True
 restart_counter = 0
 restart_counter_2 = 0
+fixed_small_mom = 0.*x
+fixed_small_mom_counter = 0
 
 for i in range(4000):
     for j in range(1000):
@@ -126,20 +124,23 @@ for i in range(4000):
             restart_condition = np.dot(cum_grad, small_mom + 0* cum_grad/cum_inv_rate/horizon) < 0
 
             if restart_condition:
-                if restart_counter == horizon and restart_counter_2 >= horizon:
+                small_mom =  beta * small_mom
+                x_mom = x + horizon * small_mom
+                cum_grad -= descent_dir
+                descent_dir = -df(x_mom, input, output)
+                cum_grad += descent_dir
+                n_evals += 1
+
+                if restart_counter == horizon:
                     print("Restart")
                     # restart
-                    x_mom = x
-                    cum_grad -= descent_dir
-                    descent_dir = -df(x_mom, input, output)
-                    cum_grad += descent_dir
-                    cum_mom = 0*x
-                    small_mom = 0*x
-                    n_evals += 1
+
                     avg_log_lr_count = 1.
                     backtrack_counter = horizon
                     restart_counter = 0
                     restart_counter_2 = 0
+                    fixed_small_mom_counter = 0
+                    fixed_small_mom = small_mom
                     # cum_inv_rate is not zeroed out!
                 elif restart_counter <horizon:
                     restart_counter += 1
@@ -148,6 +149,11 @@ for i in range(4000):
             elif restart_counter < horizon:
                 restart_counter += 1
 
+            if fixed_small_mom_counter == horizon:
+                fixed_small_mom = small_mom
+                fixed_small_mom_counter = 0
+            else:
+                fixed_small_mom_counter += 1
 
 
         # skippable? YES!
@@ -198,5 +204,6 @@ for i in range(4000):
 
 
 print("Average n_evals per step:", n_evals/n_steps)
+
 
 

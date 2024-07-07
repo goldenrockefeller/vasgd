@@ -104,8 +104,10 @@ backtrack_counter = horizon
 backtrack_on_restart = True
 restart_counter = 0
 restart_counter_2 = 0
+fixed_small_mom = 0.*x
+fixed_small_mom_counter = 0
 
-for i in range(400):
+for i in range(4000):
     for j in range(1000):
         k = rng.integers(1000)
         input = input_vectors[k]
@@ -120,12 +122,9 @@ for i in range(400):
 
         if restarts:
             restart_condition = np.dot(cum_grad, small_mom + 0* cum_grad/cum_inv_rate/horizon) < 0
-            #restart_condition = np.dot(cum_grad, small_mom + cum_grad) < 0
-
 
             if restart_condition:
-                if restart_counter == horizon and restart_counter_2 == horizon:
-                    restart_counter = 0
+                if restart_counter == horizon and restart_counter_2 >= horizon:
                     print("Restart")
                     # restart
                     x_mom = x
@@ -136,7 +135,10 @@ for i in range(400):
                     n_evals += 1
                     avg_log_lr_count = 1.
                     backtrack_counter = horizon
+                    restart_counter = 0
                     restart_counter_2 = 0
+                    fixed_small_mom_counter = 0
+                    fixed_small_mom = small_mom
                     # cum_inv_rate is not zeroed out!
                 elif restart_counter <horizon:
                     restart_counter += 1
@@ -144,6 +146,13 @@ for i in range(400):
                     restart_counter_2 += 1
             elif restart_counter < horizon:
                 restart_counter += 1
+
+            if fixed_small_mom_counter == horizon:
+                fixed_small_mom = small_mom
+                fixed_small_mom_counter = 0
+            else:
+                fixed_small_mom_counter += 1
+
 
         # skippable? YES!
         if backtrack_counter > 0 or not backtrack_on_restart:
@@ -165,7 +174,7 @@ for i in range(400):
         n_evals += 1 + n_lr_evals
         n_steps += 1
 
-    print(f"loss = {loss(x, input_vectors, output_vectors)}")
+    print(f"loss = {loss(x, input_vectors, output_vectors)}, {restart_counter_2=}")
     n_evals_elapsed.append(n_evals)
     evals.append(loss(x, input_vectors, output_vectors))
 
