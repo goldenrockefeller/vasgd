@@ -5,6 +5,7 @@ jax.config.update("jax_enable_x64", True)
 rng = np.random.default_rng()
 target_model = rng.normal(size = (10, 10))
 starting_model = rng.normal(size = (10, 10))
+starting_model = (rng.normal(size = (10, 10)), rng.normal(size = (10, 10)))
 n_input_vectors = 1000
 condition_multiplier = 1000 * 1000
 noise = 0.01
