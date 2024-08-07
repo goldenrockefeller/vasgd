@@ -1,9 +1,10 @@
 # vasgd
 Versatile Accelerated Stochastic Gradient Descent Experiments
 
-Mini-batch is the best. These experiements assumed one sample at a time, but batches are better when available. For full gradient descent, Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart is the most efficient, but backtracking is not too much more expensive. LBFGS (memory-less) is slower because it takes a lot more function evaluations to find acceptable Wolfe Conditions. Nesterov Accelerated Gradient does not do well with Wolfe Conditions, gradient steps should be small so that future steps that are taken under the influence of momentum are not too large due to the inertia. Large steps will but the NAG step into a restart condition too frequently. Partial restart does not have a noticeble effect on convergence. Hybrid technique that tries to combine lbfgs with NAG does not do noticeably better.
+Mini-batch is the best when available, when not available horizon method is good alternative. Horizon method experiements assumed one sample at a time, but batches are better when available. For full gradient descent, Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart is the most efficient, but backtracking is not too much more expensive. LBFGS (memory-less) is often slower than backtacking NAG on Restart (but faster than full) because it takes a lot more function evaluations to find acceptable Wolfe Conditions. LBFGS can be the fastest on some highly conditioned problems, adding more memory can improve performance. Nesterov Accelerated Gradient does not do well with Wolfe Conditions search, gradient steps should be small so that future steps that are taken under the influence of momentum are not too large. Large steps will put the NAG step into a restart condition too frequently. Partial restart does not have a noticeble effect on convergence. Hybrid technique that tries to combine lbfgs with NAG by alternating when NAG is set to restart does not do noticeably better.
 
-Take away, use Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart with appropriately size mini-batch.
+Takeaway, use Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart with appropriately size mini-batch.
+Note: Backtracking on Restart will result in less than 2 function evaluations on average!
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
