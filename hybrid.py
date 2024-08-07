@@ -9,7 +9,7 @@ target_model = rng.normal(size = (10, 10))
 starting_model = rng.normal(size = (10, 10))
 starting_model2 = (rng.normal(size = (10, 10)), rng.normal(size = (10, 10)))
 n_input_vectors = 1000
-condition_multiplier = 1000 * 1000
+condition_multiplier = 10 * 10
 noise = 0.01
 
 input_vectors = []
@@ -220,6 +220,12 @@ def nesterov_step(f, df, x, x_prev, lr, is_restarting, is_always_backtracking, u
                 x, x_prev = x_prev, x_prev
             n_evals += 2
 
+    if is_always_backtracking:
+        if (f(x) < f(x_prev)):
+            x, x_prev = x, x_prev
+        else:
+            x, x_prev = x_prev, x_prev
+        n_evals += 1 # 2 without caching
 
     mom = x - x_prev
     x_mom = x + mom
@@ -229,15 +235,17 @@ def nesterov_step(f, df, x, x_prev, lr, is_restarting, is_always_backtracking, u
     if np.dot(descent_dir, mom) < 0:
         return x, x_prev, lr, True, n_evals, None
 
+    rn = rng.uniform() < 0.1
 
-    if is_always_backtracking or is_restarting:
+    if is_always_backtracking or is_restarting or rn:
+
         x_prev = x
-        x, lr, n_lr_evals = single_armijo_step(f, x_mom, grad, lr, 0.75)
+        x, lr, n_lr_evals = single_armijo_step(f, x_mom, grad, lr, 0.5)
         # x, lr, success, n_lr_evals =  single_wolfe_step(f, df, x, grad, lr, 0.25)
         n_evals += n_lr_evals
         return x, x_prev, lr, False, n_evals, None
 
-    grad_step = descent_dir * lr * 0.75
+    grad_step = descent_dir * lr * 0.5
     x_prev = x
     x = x_mom + grad_step
 
@@ -261,7 +269,7 @@ def solver(f, df, x, method, max_n_evals):
         n_evals += n_method_evals
         n_steps += 1
         n_evals_elapsed.append(n_evals)
-        evals.append(f(x))
+        evals.append(min(f(x), f(x_prev)))
 
     print("Average n_evals per step:", method.__name__, n_evals/n_steps)
     print(x)
@@ -286,23 +294,26 @@ def lbfgs2(f, df, x, x_prev, lr, is_restarting, original_lr):
     n_evals += 1
 
     if is_restarting:
-        new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, grad, lr)
+        not_x, a_lr, n_alr_evals = single_armijo_step(f, x, grad, lr, 1.0)
+        new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, grad, 2*a_lr)
         x_prev = x
         x = new_x
-        n_evals += n_w_evals
-        return x, x_prev, lr, False, n_evals, lr
+        n_evals += n_w_evals + n_alr_evals
+        original_lr = lr
+        return x, x_prev, lr, False, n_evals, original_lr
 
     grad_prev = df(x_prev)
     n_evals += 1
-    scaled_grad = lbfgs_grad(x, x_prev, grad, grad_prev, 1.)
+    scaled_grad = lbfgs_grad(x, x_prev, grad, grad_prev, None) # None, 1., original_lr
     if scaled_grad is None:
         return x, x_prev, lr, True, n_evals, original_lr
     elif np.dot(scaled_grad,grad) <= 0:
         return x, x_prev, lr, True, n_evals, original_lr
-    new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, scaled_grad, lr)
+    new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, scaled_grad, 2 * lr)
     n_evals += n_w_evals
     if not success:
-        new_x, lr, n_lr_evals = single_armijo_step(f, x, grad, lr, 0.5)
+        print("Armijo step taken, Use Nesterov?")
+        new_x, lr, n_lr_evals = single_armijo_step(f, x, grad, lr, 1.0)
         n_evals += n_lr_evals
     x_prev = x
     x = new_x
@@ -335,11 +346,10 @@ def hybrid_solver(f, df, x, x_prev, lr, is_restarting,data):
         )
         hybrid_counter -= n_method_evals
         if hybrid_counter <= 0:
-            if is_restarting:
-                hybrid_counter = 0
-                hybrid_method_on_nag = 0
-                is_restarting = True
-                x_prev = x
+            hybrid_counter = 0
+            hybrid_method_on_nag = 0
+            is_restarting = True
+            x_prev = x
 
     hybrid_data = (hybrid_counter, hybrid_method_on_nag)
     return x, x_prev, lr, is_restarting, n_method_evals, (hybrid_data, method_data)
@@ -448,7 +458,7 @@ def wolfe_search(f, df, x, x_prev):
     if success:
         return wolfe_sr * sr, sr, grad, True, n_evals
 
-    for i in range(50):
+    for i in range(100):
         # print(lo, lo_plus, hi_minus, hi)
         # print(f_lo, f_lo_plus, f_hi_minus, f_hi)
         # print()
@@ -526,50 +536,44 @@ def d_rosenbrock(x):
 #[-1.07397447,  1.12972293,  1.2428755 ]
 #[-1.2, 1.2,1.2]
 #[-0.77565955,  0.61309386,  0.38206344,  0.14597248]
-evals, n_evals_elapsed = solver(rosenbrock, d_rosenbrock, [5, -1.2, 5], lbfgs2, 1500)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), label = "backtracking_nesterov")
+# evals, n_evals_elapsed = solver(rosenbrock, d_rosenbrock, [5, -1.2, 5], lbfgs2, 2500)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), label = "backtracking_nesterov")
+#
+#
+#
+# evals, n_evals_elapsed = solver(rosenbrock, d_rosenbrock, [5, -1.2, 5], backtrack_on_restart_nesterov, 2000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), label = "backtrack_on_restart_nesterov")
+# plt.show()
 
 
+x =  np.reshape(starting_model, 100)
+evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
 
-evals, n_evals_elapsed = solver(rosenbrock, d_rosenbrock, [5, -1.2, 5], backtrack_on_restart_nesterov, 2000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), label = "backtrack_on_restart_nesterov")
+
+evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtrack_on_restart_nesterov, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
+
+
+evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtracking_nesterov, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
+
+plt.legend()
 plt.show()
+#
+#
 
-#
-# x =  np.reshape(starting_model, 100)
-# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r", label = "lbfgs2")
-#
-#
-# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtrack_on_restart_nesterov_pr, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b", label = "brnag")
-#
-#
-# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, hybrid_solver, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "--r", label = "hybrid")
-#
-# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtracking_nesterov_pr, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "--b", label = "full_bnag")
-#
-# plt.legend()
-# plt.show()
-# #
-# #
-#
-# x2 =  np.hstack((np.reshape(starting_model2[0], 100), np.reshape(starting_model2[1], 100)))
-# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r", label = "lbfgs2")
-#
-#
-# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov_pr, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b", label = "brnag_pr")
-#
-#
-# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, hybrid_solver, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "--r", label = "hybrid")
-#
-# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov, 15000)
-# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "--b", label = "brnag")
-#
-# plt.legend()
-# plt.show()
+x2 =  np.hstack((np.reshape(starting_model2[0], 100), np.reshape(starting_model2[1], 100)))
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
+
+
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
+
+
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtracking_nesterov, 15000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
+
+plt.legend()
+plt.show()
