@@ -9,7 +9,7 @@ target_model = rng.normal(size = (10, 10))
 starting_model = rng.normal(size = (10, 10))
 starting_model2 = (rng.normal(size = (10, 10)), rng.normal(size = (10, 10)))
 n_input_vectors = 1000
-condition_multiplier = 10 * 10
+condition_multiplier = 1000 * 1000
 noise = 0.01
 
 input_vectors = []
@@ -304,7 +304,38 @@ def lbfgs2(f, df, x, x_prev, lr, is_restarting, original_lr):
 
     grad_prev = df(x_prev)
     n_evals += 1
-    scaled_grad = lbfgs_grad(x, x_prev, grad, grad_prev, None) # None, 1., original_lr
+    scaled_grad = lbfgs_grad(x, x_prev, grad, grad_prev, original_lr) # None, 1., original_lr
+    if scaled_grad is None:
+        return x, x_prev, lr, True, n_evals, original_lr
+    elif np.dot(scaled_grad,grad) <= 0:
+        return x, x_prev, lr, True, n_evals, original_lr
+    new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, scaled_grad, 2 * lr)
+    n_evals += n_w_evals
+    if not success:
+        print("Armijo step taken, Use Nesterov?")
+        new_x, lr, n_lr_evals = single_armijo_step(f, x, grad, lr, 1.0)
+        n_evals += n_lr_evals
+    x_prev = x
+    x = new_x
+    return x, x_prev, lr, False, n_evals, original_lr
+
+def lbfgs2_one(f, df, x, x_prev, lr, is_restarting, original_lr):
+    n_evals = 0
+    grad = df(x)
+    n_evals += 1
+
+    if is_restarting:
+        not_x, a_lr, n_alr_evals = single_armijo_step(f, x, grad, lr, 1.0)
+        new_x, lr, success, n_w_evals = single_wolfe_step(f, df, x, grad, 2*a_lr)
+        x_prev = x
+        x = new_x
+        n_evals += n_w_evals + n_alr_evals
+        original_lr = lr
+        return x, x_prev, lr, False, n_evals, original_lr
+
+    grad_prev = df(x_prev)
+    n_evals += 1
+    scaled_grad = lbfgs_grad(x, x_prev, grad, grad_prev, 1.) # None, 1., original_lr
     if scaled_grad is None:
         return x, x_prev, lr, True, n_evals, original_lr
     elif np.dot(scaled_grad,grad) <= 0:
@@ -373,12 +404,12 @@ def wolfe_check(f, df, x_prev, scaled_s, f_x, f_x_prev, grad_prev):
     if not np.isfinite(scaled_s * wolfe_sr).all():
         return wolfe_sr, None, False, n_evals
 
-    f_wp = f(x_prev + scaled_s * wolfe_sr)
-    n_evals += 1
-    if not np.isfinite(f_wp):
-        return wolfe_sr, None, False, n_evals
+    # f_wp = f(x_prev + scaled_s * wolfe_sr)
+    # n_evals += 1
+    # if not np.isfinite(f_wp):
+    #     return wolfe_sr, None, False, n_evals
 
-    if not (f_wp < f_x and f_wp < f_x_prev and f_x < f_x_prev):
+    if not (f_x < f_x_prev): # f_wp < f_x and f_wp < f_x_prev and
         return wolfe_sr, None, False, n_evals
 
     return wolfe_sr, grad, True, n_evals
@@ -546,34 +577,64 @@ def d_rosenbrock(x):
 # plt.show()
 
 
-x =  np.reshape(starting_model, 100)
-evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2, 15000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
-
-
-evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtrack_on_restart_nesterov, 15000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
-
-
-evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtracking_nesterov, 15000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
-
-plt.legend()
-plt.show()
+# x =  np.reshape(starting_model, 100)
+# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
 #
+#
+# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtrack_on_restart_nesterov, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
+#
+#
+# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, backtracking_nesterov, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
+#
+# plt.legend()
+# plt.show()
+#
+#
+#
+# x2 =  np.hstack((np.reshape(starting_model2[0], 100), np.reshape(starting_model2[1], 100)))
+# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
+#
+#
+# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
+#
+#
+# evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtracking_nesterov, 15000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
+#
+# plt.legend()
+# plt.show()
+
+
+# x =  np.reshape(starting_model, 100)
+# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2, 45000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
+#
+#
+# evals, n_evals_elapsed = solver(loss(input_vectors, output_vectors), d_loss(input_vectors, output_vectors), x, lbfgs2_one, 45000)
+# plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "lbfgs2_one")
+#
+#
+# plt.legend()
+# plt.show()
 #
 
 x2 =  np.hstack((np.reshape(starting_model2[0], 100), np.reshape(starting_model2[1], 100)))
-evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2, 15000)
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2, 45000)
 plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "r+", label = "lbfgs2")
 
 
-evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov, 15000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "brnag")
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, lbfgs2_one, 45000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "b+", label = "lbfgs2_one")
 
-
-evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtracking_nesterov, 15000)
-plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "full_bnag")
+evals, n_evals_elapsed = solver(loss2(input_vectors, output_vectors), d_loss2(input_vectors, output_vectors), x2, backtrack_on_restart_nesterov, 45000)
+plt.plot(n_evals_elapsed, np.log(np.array(evals)+0.0000001), "y+", label = "brnag")
 
 plt.legend()
 plt.show()
+
+
