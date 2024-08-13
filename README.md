@@ -1,6 +1,8 @@
 # vasgd
 Versatile Accelerated Stochastic Gradient Descent Experiments
 
+Scipy's LBFGS is much faster than my implementation, especially since it has access to more memory. Use that when available.
+
 Mini-batch is the best when available, when not available horizon method is good alternative. Horizon method experiements assumed one sample at a time, but batches are better when available. For full gradient descent, Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart is the most efficient, but backtracking is not too much more expensive. LBFGS (memory-less) can be faster or slower than backtracking NAG on Restart depending on the problem. Gamma should be 1., don't use Wikipedia value! LBFGS can be the fastest on some highly conditioned problems, adding more memory can improve performance. Nesterov Accelerated Gradient does not do well with Wolfe Conditions search, gradient steps should be small so that future steps that are taken under the influence of momentum are not too large. Large steps will put the NAG step into a restart condition too frequently. Partial restart does not have a noticeble effect on convergence. Hybrid technique that tries to combine lbfgs with NAG by alternating when NAG is set to restart does not do noticeably better.
 
 Takeaway, use LBFGS(gamma = 1.) or Nesterov Accelerated Gradient with (Armijo) Backtracking on Restart with appropriately size mini-batch.
